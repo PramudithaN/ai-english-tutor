@@ -136,7 +136,7 @@ function App() {
         {messages.length === 0 && !isLoading && (
           <div className="welcome-message">
              <h2>Hello <span style={{ color: '#8ab4f8' }}>Machan</span>,</h2>
-             <p>I'm your personal AI assistant. Start typing, or press and hold the mic button to talk!</p>
+             <p>I'm your personal AI assistant. Start typing, or press the mic button to talk!</p>
           </div>
         )}
         {messages.map((msg, index) => (
