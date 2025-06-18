@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import './App.css';
 import ReactMarkdown from 'react-markdown';
+// NEW: Import the microphone icon
+import { FaMicrophone, FaPaperPlane } from 'react-icons/fa';
+import './App.css';
 
-// Define a type for our message object for better type-safety
+
 type Message = {
   sender: 'user' | 'ai';
   text: string;
@@ -12,32 +14,29 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  // --- NEW: State and refs for voice recording ---
   const [isRecording, setIsRecording] = useState(false);
-  // useRef is used to hold a reference to the MediaRecorder instance
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  // useRef to hold the audio chunks
   const audioChunksRef = useRef<Blob[]>([]);
+  // Ref for the chat window to auto-scroll
+  const chatWindowRef = useRef<HTMLDivElement | null>(null);
 
-  // This function now handles sending text to the AI, whether from text input or voice
+  // Auto-scroll to the bottom whenever messages change
+  React.useEffect(() => {
+    chatWindowRef.current?.scrollTo(0, chatWindowRef.current.scrollHeight);
+  }, [messages]);
+
+
   const sendPromptToAI = async (promptText: string) => {
-    // Add the user's message to the chat display first
     const userMessage: Message = { sender: 'user', text: promptText };
-    // We use a functional update to get the most recent state
     setMessages(prevMessages => [...prevMessages, userMessage]);
     setIsLoading(true);
 
-    // --- NEW: Format our message history for the Gemini API ---
-    // The Gemini API expects roles of "user" and "model". Our state uses "user" and "ai".
-    // It also expects the content to be in a `parts` array.
     const historyForAPI = messages.map(msg => ({
       role: msg.sender === 'ai' ? 'model' : 'user',
       parts: [{ text: msg.text }],
     }));
 
     try {
-      // --- MODIFIED: The fetch call now sends the history and the new prompt ---
       const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,10 +49,8 @@ function App() {
       if (!chatResponse.ok) throw new Error('Chat API failed');
       const chatData = await chatResponse.json();
       const aiTextMessage: Message = { sender: 'ai', text: chatData.message };
-      // Add the new AI message to our state
       setMessages(prevMessages => [...prevMessages, aiTextMessage]);
 
-      // Get AI audio response (this part remains the same)
       const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}api/text-to-speech`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,7 +70,6 @@ function App() {
     }
   };
 
-  // --- MODIFIED: This function now only handles the form submission for text input ---
   const handleTextSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim()) return;
@@ -81,66 +77,62 @@ function App() {
     setUserInput('');
   };
 
-  // --- NEW: Function to handle starting and stopping the recording ---
-  const handleRecordButtonClick = () => {
-    if (isRecording) {
-      // Stop the recording
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
-    } else {
-      // Start a new recording
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          audioChunksRef.current = []; // Clear previous audio chunks
-          const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
-          mediaRecorderRef.current = mediaRecorder;
+  // --- NEW: Separate functions for starting and stopping recording ---
+  const startRecording = () => {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => {
+        setIsRecording(true);
+        audioChunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        mediaRecorderRef.current = mediaRecorder;
 
-          // When data is available, push it to our chunks array
-          mediaRecorder.addEventListener("dataavailable", event => {
-            audioChunksRef.current.push(event.data);
-          });
+        mediaRecorder.addEventListener("dataavailable", event => {
+          audioChunksRef.current.push(event.data);
+        });
 
-          // When the recording is stopped, process the audio
-          mediaRecorder.addEventListener("stop", async () => {
-            setIsLoading(true);
-            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        mediaRecorder.addEventListener("stop", async () => {
+          setIsLoading(true);
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const formData = new FormData();
+          formData.append("audio", audioBlob);
+
+          try {
+            const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
+              method: 'POST',
+              body: formData,
+            });
+            if (!sttResponse.ok) throw new Error('Speech-to-Text API failed');
+            const sttData = await sttResponse.json();
             
-            // Use FormData to send the file to the backend
-            const formData = new FormData();
-            formData.append("audio", audioBlob);
-
-            try {
-              // Send the audio file to the speech-to-text API
-              const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
-                method: 'POST',
-                body: formData,
-              });
-              if (!sttResponse.ok) throw new Error('Speech-to-Text API failed');
-              const sttData = await sttResponse.json();
-              
-              // If transcription is successful, send it to the AI
-              if (sttData.text) {
-                sendPromptToAI(sttData.text);
-              }
-            } catch (error) {
-              console.error("Speech-to-Text failed:", error);
-              const errorMessage: Message = { sender: 'ai', text: 'Sorry, I could not understand your speech.' };
-              setMessages(prevMessages => [...prevMessages, errorMessage]);
-            } finally {
-              setIsLoading(false);
+            if (sttData.text) {
+              sendPromptToAI(sttData.text);
             }
-          });
+          } catch (error) {
+            console.error("Speech-to-Text failed:", error);
+            const errorMessage: Message = { sender: 'ai', text: 'Sorry, I could not understand your speech.' };
+            setMessages(prevMessages => [...prevMessages, errorMessage]);
+          } finally {
+            setIsLoading(false);
+          }
+        });
 
-          mediaRecorder.start();
-          setIsRecording(true);
-        })
-        .catch(err => console.error("Error accessing microphone:", err));
-    }
+        mediaRecorder.start();
+      })
+      .catch(err => console.error("Error accessing microphone:", err));
   };
+
+  const stopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    // Get the browser to release the microphone
+    mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+    setIsRecording(false);
+  };
+
 
   return (
     <div className="App">
-      <div className="chat-window">
+      {/* We pass the ref to this div */}
+      <div className="chat-window" ref={chatWindowRef}>
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
             <ReactMarkdown>{msg.text}</ReactMarkdown>
@@ -160,15 +152,22 @@ function App() {
           placeholder="Type or click the mic to talk..."
           disabled={isLoading}
         />
-        <button type="submit" disabled={isLoading}>Send</button>
-        {/* NEW: Microphone Button */}
+        <button type="submit" disabled={isLoading || !userInput.trim()}>
+          Send
+          {/* <FaPaperPlane />  */}
+        </button>
+        {/* MODIFIED: Microphone Button with new events */}
         <button 
           type="button" 
-          onClick={handleRecordButtonClick} 
+          onMouseDown={startRecording}
+          onMouseUp={stopRecording}
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
           className={`mic-button ${isRecording ? 'recording' : ''}`}
           disabled={isLoading && !isRecording}
         >
-          🎤
+          🎙️
+          {/* <FaMicrophone />  */}
         </button>
       </form>
     </div>
