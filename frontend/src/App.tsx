@@ -34,7 +34,7 @@ function App() {
     }));
 
     try {
-      const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/chat`, {
+      const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -48,7 +48,7 @@ function App() {
       const aiTextMessage: Message = { sender: 'ai', text: chatData.message };
       setMessages(prevMessages => [...prevMessages, aiTextMessage]);
 
-      const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/text-to-speech`, {
+      const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}api/text-to-speech`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: chatData.message }),
@@ -95,7 +95,7 @@ function App() {
           formData.append("audio", audioBlob);
 
           try {
-            const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/speech-to-text`, {
+            const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
               method: 'POST',
               body: formData,
             });
