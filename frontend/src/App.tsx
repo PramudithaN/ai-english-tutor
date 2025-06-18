@@ -14,17 +14,40 @@ function App() {
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  
+  // --- NEW: State for the loading animation ---
+  const [loadingDots, setLoadingDots] = useState('.');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const chatWindowRef = useRef<HTMLDivElement | null>(null);
-
   const currentlyPlayingAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     chatWindowRef.current?.scrollTo(0, chatWindowRef.current.scrollHeight);
   }, [messages]);
+
+  // --- NEW: useEffect to animate the loading dots ---
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isLoading) {
+      // Start an interval to cycle through 1, 2, and 3 dots
+      interval = setInterval(() => {
+        setLoadingDots(dots => {
+          if (dots.length >= 3) {
+            return '.';
+          }
+          return dots + '.';
+        });
+      }, 400); // Change the speed of the animation here
+    }
+
+    // This is a cleanup function that runs when the component unmounts
+    // or when the isLoading state changes. It stops the interval.
+    return () => clearInterval(interval);
+  }, [isLoading]); // This effect only runs when isLoading changes
+
 
   const sendPromptToAI = async (promptText: string) => {
     const newUserMessage: Message = { sender: 'user', text: promptText };
@@ -40,10 +63,7 @@ function App() {
       const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          history: historyForAPI, 
-          prompt: promptText 
-        }),
+        body: JSON.stringify({ history: historyForAPI, prompt: promptText }),
       });
       if (!chatResponse.ok) throw new Error(`Chat API failed with status ${chatResponse.status}`);
       const chatData = await chatResponse.json();
@@ -58,11 +78,8 @@ function App() {
       if (!ttsResponse.ok) throw new Error(`TTS API failed with status ${ttsResponse.status}`);
       const ttsData = await ttsResponse.json();
       const audio = new Audio(`data:audio/mp3;base64,${ttsData.audioContent}`);
-      
       currentlyPlayingAudioRef.current = audio;
       await audio.play();
-      
-      // When audio finishes playing, clear the ref
       audio.onended = () => {
         currentlyPlayingAudioRef.current = null;
       };
@@ -79,12 +96,10 @@ function App() {
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim()) return;
-
     if (currentlyPlayingAudioRef.current) {
       currentlyPlayingAudioRef.current.pause();
       currentlyPlayingAudioRef.current = null;
     }
-
     sendPromptToAI(userInput);
     setUserInput('');
   };
@@ -96,12 +111,10 @@ function App() {
       }
       setIsRecording(false);
     } else {
-      // --- STEP 4: Interrupt playing audio when starting a new recording ---
       if (currentlyPlayingAudioRef.current) {
         currentlyPlayingAudioRef.current.pause();
         currentlyPlayingAudioRef.current = null;
       }
-      
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
           audioStreamRef.current = stream;
@@ -162,9 +175,11 @@ function App() {
           </div>
         ))}
 
+        {/* --- MODIFIED: The loading message now uses the animated dots --- */}
         {isLoading && !isRecording && (
           <div className="message ai">
-            <p><i>Just a sec, Analyzing...</i></p>
+            {/* We use a span with a fixed width to prevent the layout from shifting as the dots change */}
+            <p><i>Just a sec, Analyzing<span style={{ minWidth: '15px', display: 'inline-block', textAlign: 'left' }}>{loadingDots}</span></i></p>
           </div>
         )}
       </div>
@@ -180,7 +195,7 @@ function App() {
           disabled={isLoading}
           autoFocus
         />
-        {userInput.trim() ? (
+         {userInput.trim() ? (
           <button
             type="submit"
             disabled={isLoading || !userInput.trim()}
@@ -198,7 +213,7 @@ function App() {
             {isRecording ? <StopCircle size={18} /> : <Mic size={18} />}
           </button>
         )}      
-        </form>
+      </form>
     </div>
   );
 }
