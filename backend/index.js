@@ -17,9 +17,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 
+// Get the frontend URL from an environment variable for flexibility
+const frontendURL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 // Use a more specific CORS configuration
 const corsOptions = {
-  origin: 'http://localhost:3000', // Allow only your frontend to connect
+  origin: frontendURL,
   optionsSuccessStatus: 200 
 }
 app.use(cors(corsOptions));

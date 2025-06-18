@@ -38,7 +38,7 @@ function App() {
 
     try {
       // --- MODIFIED: The fetch call now sends the history and the new prompt ---
-      const chatResponse = await fetch('http://localhost:5000/api/chat', {
+      const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -54,7 +54,7 @@ function App() {
       setMessages(prevMessages => [...prevMessages, aiTextMessage]);
 
       // Get AI audio response (this part remains the same)
-      const ttsResponse = await fetch('http://localhost:5000/api/text-to-speech', {
+      const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/text-to-speech`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: chatData.message }),
