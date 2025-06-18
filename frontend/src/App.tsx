@@ -20,20 +20,17 @@ function App() {
   const audioStreamRef = useRef<MediaStream | null>(null);
   const chatWindowRef = useRef<HTMLDivElement | null>(null);
 
+  const currentlyPlayingAudioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     chatWindowRef.current?.scrollTo(0, chatWindowRef.current.scrollHeight);
   }, [messages]);
 
   const sendPromptToAI = async (promptText: string) => {
-    // We create a temporary user message to update the UI immediately
     const newUserMessage: Message = { sender: 'user', text: promptText };
-
-    // Use the functional form of setState to get the most up-to-date message list
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setIsLoading(true);
-
     const currentHistory = [...messages, newUserMessage];
-
     const historyForAPI = currentHistory.map(msg => ({
       role: msg.sender === 'ai' ? 'model' : 'user',
       parts: [{ text: msg.text }],
@@ -43,9 +40,9 @@ function App() {
       const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          history: historyForAPI,
-          prompt: promptText
+        body: JSON.stringify({ 
+          history: historyForAPI, 
+          prompt: promptText 
         }),
       });
       if (!chatResponse.ok) throw new Error(`Chat API failed with status ${chatResponse.status}`);
@@ -61,7 +58,14 @@ function App() {
       if (!ttsResponse.ok) throw new Error(`TTS API failed with status ${ttsResponse.status}`);
       const ttsData = await ttsResponse.json();
       const audio = new Audio(`data:audio/mp3;base64,${ttsData.audioContent}`);
+      
+      currentlyPlayingAudioRef.current = audio;
       await audio.play();
+      
+      // When audio finishes playing, clear the ref
+      audio.onended = () => {
+        currentlyPlayingAudioRef.current = null;
+      };
 
     } catch (error) {
       console.error("API call failed:", error);
@@ -75,6 +79,12 @@ function App() {
   const handleTextSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!userInput.trim()) return;
+
+    if (currentlyPlayingAudioRef.current) {
+      currentlyPlayingAudioRef.current.pause();
+      currentlyPlayingAudioRef.current = null;
+    }
+
     sendPromptToAI(userInput);
     setUserInput('');
   };
@@ -86,15 +96,19 @@ function App() {
       }
       setIsRecording(false);
     } else {
+      // --- STEP 4: Interrupt playing audio when starting a new recording ---
+      if (currentlyPlayingAudioRef.current) {
+        currentlyPlayingAudioRef.current.pause();
+        currentlyPlayingAudioRef.current = null;
+      }
+      
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
           audioStreamRef.current = stream;
           audioChunksRef.current = [];
           const mediaRecorder = new MediaRecorder(stream);
           mediaRecorderRef.current = mediaRecorder;
-
           mediaRecorder.addEventListener("dataavailable", event => audioChunksRef.current.push(event.data));
-          
           mediaRecorder.addEventListener("stop", async () => {
             stream.getTracks().forEach(track => track.stop());
             setIsLoading(true);
@@ -122,7 +136,6 @@ function App() {
               setIsLoading(false);
             }
           });
-
           mediaRecorder.start();
           setIsRecording(true);
         })
@@ -136,7 +149,6 @@ function App() {
   return (
     <div className="App">
       <div className="chat-window" ref={chatWindowRef}>
-        {/* --- MODIFIED: Welcome message now shows only if there are no messages --- */}
         {messages.length === 0 && !isLoading && (
           <div className="welcome-message">
              <h2>Hello <span style={{ color: '#8ab4f8' }}>Machan</span>,</h2>
@@ -152,14 +164,13 @@ function App() {
 
         {isLoading && !isRecording && (
           <div className="message ai">
-            <p><i>Just a sec,Analyzing...</i></p>
+            <p><i>Just a sec, Analyzing...</i></p>
           </div>
         )}
       </div>
 
       {isRecording && <VoiceVisualizer audioStream={audioStreamRef.current} isRecording={isRecording} />}
       
-      {/* --- MODIFIED: The input form is now always visible --- */}
       <form className="chat-input-form" onSubmit={handleTextSubmit}>
         <input
           type="text"
@@ -186,8 +197,8 @@ function App() {
           >
             {isRecording ? <StopCircle size={18} /> : <Mic size={18} />}
           </button>
-        )}
-      </form>
+        )}      
+        </form>
     </div>
   );
 }

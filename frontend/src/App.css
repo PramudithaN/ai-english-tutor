@@ -137,6 +137,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 80px;
  transition: transform 0.1s ease-in-out, background-color 0.2s ease-in-out;
 }
 .mic-button:active {
@@ -176,6 +177,7 @@ body {
 .mic-button.recording {
   background-color: #ff4136; /* Red when recording */
   color: white;
+  width: 80px;
 }
 
 .chat-input-form button:disabled {
