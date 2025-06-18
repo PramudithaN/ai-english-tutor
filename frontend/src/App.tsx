@@ -111,7 +111,7 @@ function App() {
 
             try {
               // Send the audio file to the speech-to-text API
-              const sttResponse = await fetch('http://localhost:5000/api/speech-to-text', {
+              const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
                 method: 'POST',
                 body: formData,
               });
