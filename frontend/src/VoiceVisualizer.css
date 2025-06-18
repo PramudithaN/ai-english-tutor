@@ -1,0 +1,31 @@
+/* --- REPLACE the old .voice-visualizer styles with this --- */
+
+.voice-visualizer {
+  /* Positioning */
+  position: absolute; /* Takes the element out of the normal layout flow */
+  bottom: 90px; /* Position it 90px from the bottom, just above the input form */
+  left: 50%; /* Center it horizontally */
+  transform: translateX(-50%); /* Fine-tune the horizontal centering */
+
+  /* Sizing */
+  width: 300px; /* Give it a fixed width */
+  height: 30px;
+
+  /* Styling */
+  background-color: rgba(42, 42, 45, 0.7); /* A semi-transparent dark background */
+  backdrop-filter: blur(5px); /* Adds a modern "glassmorphism" blur effect */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* A subtle border */
+  border-radius: 20px; /* Very rounded edges */
+
+  /* Fade in/out animation */
+  transition: all 0.3s ease-in-out;
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px); /* Start slightly lower for a nice pop-up effect */
+  display: block; /* Always let it be a block, we control visibility with opacity */
+  pointer-events: none; /* Make it un-clickable so it doesn't block things behind it */
+}
+
+.voice-visualizer.active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0); /* Move to final position when active */
+}
