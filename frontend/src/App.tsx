@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-// NEW: Import the microphone icon
-import { FaMicrophone, FaPaperPlane } from 'react-icons/fa';
+// NEW: Import icons from the 'lucide-react' library
+import { Mic, Send } from 'lucide-react';
 import './App.css';
 
 
@@ -17,14 +17,11 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  // Ref for the chat window to auto-scroll
   const chatWindowRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll to the bottom whenever messages change
   React.useEffect(() => {
     chatWindowRef.current?.scrollTo(0, chatWindowRef.current.scrollHeight);
   }, [messages]);
-
 
   const sendPromptToAI = async (promptText: string) => {
     const userMessage: Message = { sender: 'user', text: promptText };
@@ -37,12 +34,12 @@ function App() {
     }));
 
     try {
-      const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
+      const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           history: historyForAPI,
-          prompt: promptText 
+          prompt: promptText
         }),
       });
 
@@ -51,7 +48,7 @@ function App() {
       const aiTextMessage: Message = { sender: 'ai', text: chatData.message };
       setMessages(prevMessages => [...prevMessages, aiTextMessage]);
 
-      const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}api/text-to-speech`, {
+      const ttsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/text-to-speech`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: chatData.message }),
@@ -77,13 +74,13 @@ function App() {
     setUserInput('');
   };
 
-  // --- NEW: Separate functions for starting and stopping recording ---
   const startRecording = () => {
+    if (isRecording) return;
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
         setIsRecording(true);
         audioChunksRef.current = [];
-        const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        const mediaRecorder = new MediaRecorder(stream);
         mediaRecorderRef.current = mediaRecorder;
 
         mediaRecorder.addEventListener("dataavailable", event => {
@@ -91,19 +88,20 @@ function App() {
         });
 
         mediaRecorder.addEventListener("stop", async () => {
+          stream.getTracks().forEach(track => track.stop());
           setIsLoading(true);
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const formData = new FormData();
           formData.append("audio", audioBlob);
 
           try {
-            const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
+            const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/speech-to-text`, {
               method: 'POST',
               body: formData,
             });
             if (!sttResponse.ok) throw new Error('Speech-to-Text API failed');
             const sttData = await sttResponse.json();
-            
+
             if (sttData.text) {
               sendPromptToAI(sttData.text);
             }
@@ -118,38 +116,37 @@ function App() {
 
         mediaRecorder.start();
       })
-      .catch(err => console.error("Error accessing microphone:", err));
+      .catch(err => {
+        console.error("Error accessing microphone:", err);
+        alert("Microphone access was denied. Please allow microphone access in your browser settings.");
+      });
   };
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    // Get the browser to release the microphone
-    mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
     setIsRecording(false);
   };
 
 
   return (
     <div className="App">
-      {/* We pass the ref to this div */}
       <div className="chat-window" ref={chatWindowRef}>
-        {messages.length === 0 && !isRecording && !isLoading && (
-          <div className="message ai">
-        <h2>
-          Hellow <span style={{ color: 'rgb(66,133,244)' }}>Machan</span>,
-          <br />
-        </h2>
-          your personal AI assistant start typing or press and hold the mic button to talk!
+        {messages.length === 0 && !isLoading && (
+          <div className="welcome-message">
+             <h2>Hello <span style={{ color: '#8ab4f8' }}>Machan</span>,</h2>
+             <p>I'm your personal AI assistant. Start typing, or press and hold the mic button to talk!</p>
           </div>
         )}
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
-        <ReactMarkdown>{msg.text}</ReactMarkdown>
+            <ReactMarkdown>{msg.text}</ReactMarkdown>
           </div>
         ))}
         {isLoading && !isRecording && (
           <div className="message ai">
-        <p><i>Thinking...</i></p>
+            <p><i>Thinking...</i></p>
           </div>
         )}
       </div>
@@ -158,25 +155,25 @@ function App() {
           type="text"
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
-          placeholder="Type or click the mic to talk..."
+          placeholder="Type or press and hold mic to talk..."
           disabled={isLoading}
         />
+        {/* MODIFIED: Using Lucide icon */}
         <button type="submit" disabled={isLoading || !userInput.trim()}>
-          Send
-          {/* <FaPaperPlane />  */}
+           <Send size={18} />
         </button>
-        {/* MODIFIED: Microphone Button with new events */}
+        {/* MODIFIED: Using Lucide icon */}
         <button 
           type="button" 
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
           onTouchStart={startRecording}
           onTouchEnd={stopRecording}
+          onMouseLeave={isRecording ? stopRecording : undefined}
           className={`mic-button ${isRecording ? 'recording' : ''}`}
           disabled={isLoading && !isRecording}
         >
-          🎙️
-          {/* <FaMicrophone />  */}
+          <Mic size={18} /> 
         </button>
       </form>
     </div>
