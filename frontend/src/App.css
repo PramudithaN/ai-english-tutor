@@ -135,7 +135,8 @@ body {
 @media (max-width: 600px) {
   .App {
     /* Use the full screen height and remove margins on mobile */
-    height: 100vh;
+    height: 100vh; /* Fallback for older browsers */
+    height: 100dvh; /* The modern solution for mobile */
     margin: 0;
     border: none;
     border-radius: 0;

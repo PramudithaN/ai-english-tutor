@@ -133,14 +133,23 @@ function App() {
     <div className="App">
       {/* We pass the ref to this div */}
       <div className="chat-window" ref={chatWindowRef}>
+        {messages.length === 0 && !isRecording && !isLoading && (
+          <div className="message ai">
+        <h2>
+          Hellow <span style={{ color: 'rgb(66,133,244)' }}>Machan</span>,
+          <br />
+        </h2>
+          your personal AI assistant start typing or press and hold the mic button to talk!
+          </div>
+        )}
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.sender}`}>
-            <ReactMarkdown>{msg.text}</ReactMarkdown>
+        <ReactMarkdown>{msg.text}</ReactMarkdown>
           </div>
         ))}
         {isLoading && !isRecording && (
           <div className="message ai">
-            <p><i>Thinking...</i></p>
+        <p><i>Thinking...</i></p>
           </div>
         )}
       </div>
