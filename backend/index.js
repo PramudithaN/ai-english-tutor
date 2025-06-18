@@ -1,3 +1,14 @@
+const fs = require('fs');
+
+// Check if the environment variable for the credentials exists
+if (process.env.SERVICE_ACCOUNT_CREDENTIALS) {
+  // Write the contents of the environment variable to the key file
+  fs.writeFileSync('./service-account-key.json', process.env.SERVICE_ACCOUNT_CREDENTIALS);
+  console.log('Service account key file created successfully.');
+} else {
+  console.log('SERVICE_ACCOUNT_CREDENTIALS environment variable not found.');
+}
+
 // At the very top, require and configure the dotenv package
 require('dotenv').config();
 
