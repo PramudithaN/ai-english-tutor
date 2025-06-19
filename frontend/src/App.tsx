@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { Mic, Send, StopCircle } from 'lucide-react';
 import './App.css';
 import VoiceVisualizer from './VoiceVisualizer';
+import Swal from 'sweetalert2';
 
 type Message = {
   sender: 'user' | 'ai';
@@ -14,8 +15,6 @@ function App() {
   const [userInput, setUserInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  
-  // --- NEW: State for the loading animation ---
   const [loadingDots, setLoadingDots] = useState('.');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -28,33 +27,55 @@ function App() {
     chatWindowRef.current?.scrollTo(0, chatWindowRef.current.scrollHeight);
   }, [messages]);
 
-  // --- NEW: useEffect to animate the loading dots ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isLoading) {
-      // Start an interval to cycle through 1, 2, and 3 dots
       interval = setInterval(() => {
-        setLoadingDots(dots => {
-          if (dots.length >= 3) {
-            return '.';
-          }
-          return dots + '.';
-        });
-      }, 400); // Change the speed of the animation here
+        setLoadingDots(dots => (dots.length >= 3 ? '.' : dots + '.'));
+      }, 400);
     }
-
-    // This is a cleanup function that runs when the component unmounts
-    // or when the isLoading state changes. It stops the interval.
     return () => clearInterval(interval);
-  }, [isLoading]); // This effect only runs when isLoading changes
-
+  }, [isLoading]);
 
   const sendPromptToAI = async (promptText: string) => {
     const newUserMessage: Message = { sender: 'user', text: promptText };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     setIsLoading(true);
-    const currentHistory = [...messages, newUserMessage];
-    const historyForAPI = currentHistory.map(msg => ({
+
+    // --- EASTER EGG LOGIC ---
+   if (promptText.toLowerCase().includes('pramuditha')) {
+      Swal.fire({
+        title: '🎉 Congratulations!',
+        text: 'You found the Easter egg!',
+        icon: 'success',
+        confirmButtonText: 'Awesome!',
+        color: '#fff',
+        background: '#1f1f1f',
+        allowOutsideClick() {
+          return true;
+        },
+      });
+      const easterEggResponse = `Congratulations on finding the Easter egg! Pramuditha is a Software Engineer and Graphic Designer. He loves creating innovative solutions and has a passion for design. Keep exploring and have fun with the AI! Portfolio: [https://pramuditha.is-a.dev](https://pramuditha.is-a.dev)`;
+      
+      // Simulate a short delay to feel like the AI is thinking
+      setTimeout(() => {
+        const aiTextMessage: Message = { sender: 'ai', text: easterEggResponse };
+        setMessages(prevMessages => [...prevMessages, aiTextMessage]);
+        
+        // Use the browser's built-in speech synthesis for the Easter egg
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(easterEggResponse);
+          window.speechSynthesis.speak(utterance);
+        }
+        
+        setIsLoading(false);
+      }, 1200); // 1.2 second delay
+
+      // Stop the function here so it doesn't call the real API
+      return; 
+    }
+
+    const currentHistory = messages.map(msg => ({
       role: msg.sender === 'ai' ? 'model' : 'user',
       parts: [{ text: msg.text }],
     }));
@@ -63,7 +84,7 @@ function App() {
       const chatResponse = await fetch(`${process.env.REACT_APP_API_URL}api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ history: historyForAPI, prompt: promptText }),
+        body: JSON.stringify({ history: currentHistory, prompt: promptText }),
       });
       if (!chatResponse.ok) throw new Error(`Chat API failed with status ${chatResponse.status}`);
       const chatData = await chatResponse.json();
@@ -128,7 +149,6 @@ function App() {
             const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
             const formData = new FormData();
             formData.append("audio", audioBlob);
-
             try {
               const sttResponse = await fetch(`${process.env.REACT_APP_API_URL}api/speech-to-text`, {
                 method: 'POST',
@@ -175,11 +195,9 @@ function App() {
           </div>
         ))}
 
-        {/* --- MODIFIED: The loading message now uses the animated dots --- */}
         {isLoading && !isRecording && (
           <div className="message ai">
-            {/* We use a span with a fixed width to prevent the layout from shifting as the dots change */}
-            <p><i>Just a sec, Analyzing<span style={{ minWidth: '15px', display: 'inline-block', textAlign: 'left' }}>{loadingDots}</span></i></p>
+            <p><i>Thinking<span style={{ minWidth: '15px', display: 'inline-block', textAlign: 'left' }}>{loadingDots}</span></i></p>
           </div>
         )}
       </div>
@@ -195,24 +213,17 @@ function App() {
           disabled={isLoading}
           autoFocus
         />
-         {userInput.trim() ? (
-          <button
-            type="submit"
-            disabled={isLoading || !userInput.trim()}
-            className="send-button"
-          >
-            <Send  size={16} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleToggleRecording}
-            className={`mic-button ${isRecording ? 'recording' : ''}`}
-            disabled={isLoading}
-          >
-            {isRecording ? <StopCircle size={18} /> : <Mic size={18} />}
-          </button>
-        )}      
+        <button type="submit" disabled={isLoading || !userInput.trim()}>
+           <Send size={18} />
+        </button>
+        <button 
+          type="button" 
+          onClick={handleToggleRecording}
+          className={`mic-button ${isRecording ? 'recording' : ''}`}
+          disabled={isLoading}
+        >
+          {isRecording ? <StopCircle size={18} /> : <Mic size={18} />}
+        </button>
       </form>
     </div>
   );
