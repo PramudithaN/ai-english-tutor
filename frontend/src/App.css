@@ -48,24 +48,29 @@ body {
 }
 
 .message {
-  padding: 10px 15px;
-  border-radius: 20px;
+  padding: 4px 16px;      /* Reduced vertical padding */
+  border-radius: 22px;
   max-width: 80%;
+  width: fit-content;
   word-wrap: break-word;
+  line-height: 1.2;         /* Reduced line height for a tighter fit */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
 .message.user {
-  background-color: var(--user-message-color);
+  background-color: #0b93f6;
   color: white;
   align-self: flex-end;
-  text-align: right;
+  /* --- The Magic: Make the bottom-left corner sharp to create the "tail" --- */
+  border-bottom-right-radius: 5px; 
 }
 
 .message.ai {
-  background-color: var(--ai-message-color);
-  color: var(--text-color);
+  background-color: #3e3e42;
+  color: #e4e6eb;
   align-self: flex-start;
-  text-align: left;
+  /* --- The Magic: Make the bottom-right corner sharp to create the "tail" --- */
+  border-bottom-left-radius: 5px; 
 }
 
 /* Make markdown links look nice */
